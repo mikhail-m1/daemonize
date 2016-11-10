@@ -2,9 +2,9 @@ extern crate tempdir;
 extern crate libc;
 
 use std::io::prelude::*;
-use std::ffi::{OsStr};
+use std::ffi::OsStr;
 
-use tempdir::{TempDir};
+use tempdir::TempDir;
 
 fn run<S: AsRef<OsStr>>(cmd: S, args: &[S]) -> u32 {
     let mut cmd = std::process::Command::new(cmd);
@@ -87,7 +87,7 @@ fn run_stop() {
     let mut data = String::new();
     std::fs::File::open(&first_result).unwrap().read_to_string(&mut data).unwrap();
     assert_eq!(data, "ok");
-    
+
     data.clear();
     std::fs::File::open(&second_result).unwrap().read_to_string(&mut data).unwrap();
     assert_eq!(data, "ok");

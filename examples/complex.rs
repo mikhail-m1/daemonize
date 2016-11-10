@@ -1,11 +1,15 @@
 extern crate daemonize;
 extern crate syslog;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
-use daemonize::{Daemonize};
+use daemonize::Daemonize;
 
 fn main() {
-    syslog::init(syslog::Facility::LOG_USER, log::LogLevelFilter::Debug, Some("daemon-name")).unwrap();
+    syslog::init(syslog::Facility::LOG_USER,
+                 log::LogLevelFilter::Debug,
+                 Some("daemon-name"))
+        .unwrap();
 
     let daemonize = Daemonize::new()
         .pid_file("/tmp/test.pid") // Every method except `new` and `start`

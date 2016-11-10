@@ -6,8 +6,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//!
-//! daemonize is a library for writing system daemons. Inspired by the Python library [thesharp/daemonize](https://github.com/thesharp/daemonize).
+//! daemonize is a library for writing system daemons.
+//! Inspired by the Python library [thesharp/daemonize](https://github.com/thesharp/daemonize).
 //!
 //! The respository is located at https://github.com/knsd/daemonize/.
 //!
@@ -44,17 +44,18 @@ mod ffi;
 extern crate libc;
 
 use std::fmt;
-use std::env::{set_current_dir};
-use std::ffi::{CString};
+use std::env::set_current_dir;
+use std::ffi::CString;
 use std::os::unix::ffi::OsStringExt;
-use std::mem::{transmute};
+use std::mem::transmute;
 use std::path::{Path, PathBuf};
-use std::process::{exit};
+use std::process::exit;
 use std::fs::File;
 use std::io::Read;
 
 pub use libc::{uid_t, gid_t};
-use libc::{LOCK_EX, LOCK_NB, c_int, fopen, write, close, fileno, fork, getpid, setsid, setuid, setgid, dup2, umask, kill, SIGTERM};
+use libc::{LOCK_EX, LOCK_NB, c_int, fopen, write, close, fileno, fork, getpid, setsid, setuid,
+           setgid, dup2, umask, kill, SIGTERM};
 
 use self::ffi::{errno, flock, get_gid_by_name, get_uid_by_name};
 
@@ -127,7 +128,9 @@ impl DaemonizeError {
             DaemonizeError::OpenPidfile => "unable to open pid file",
             DaemonizeError::LockPidfile(_) => "unable to lock pid file",
             DaemonizeError::ChownPidfile(_) => "unable to chown pid file",
-            DaemonizeError::RedirectStreams(_) => "unable to redirect standard streams to /dev/null",
+            DaemonizeError::RedirectStreams(_) => {
+                "unable to redirect standard streams to /dev/null"
+            }
             DaemonizeError::WritePid => "unable to write self pid to pid file",
             DaemonizeError::__Nonexhaustive => unreachable!(),
         }
@@ -225,7 +228,8 @@ impl From<gid_t> for Group {
 
 /// Daemonization options.
 ///
-/// Fork the process in the background, disassociate from its process group and the control terminal.
+/// Fork the process in the background, disassociate from its process group and
+/// the control terminal.
 /// Change umask value to `0o027`, redirect all standard streams to `/dev/null`. Change working
 /// directory to `/` or provided value.
 ///
@@ -259,7 +263,6 @@ impl<T> fmt::Debug for Daemonize<T> {
 }
 
 impl Daemonize<()> {
-
     pub fn new() -> Self {
         Daemonize {
             directory: Path::new("/").to_owned(),
@@ -273,14 +276,14 @@ impl Daemonize<()> {
 }
 
 impl<T> Daemonize<T> {
-
     /// Create pid-file at `path`, lock it exclusive and write daemon pid.
     pub fn pid_file<F: AsRef<Path>>(mut self, path: F) -> Self {
         self.pid_file = Some(path.as_ref().to_owned());
         self
     }
 
-    /// If `chown` is true, daemonize will change the pid-file ownership, if user or group are provided
+    /// If `chown` is true, daemonize will change the pid-file ownership,
+    /// if user or group are provided
     pub fn chown_pid_file(mut self, chown: bool) -> Self {
         self.chown_pid_file = chown;
         self
@@ -304,7 +307,8 @@ impl<T> Daemonize<T> {
         self
     }
 
-    /// Execute `action` just before dropping privileges. Most common usecase is to open listening socket.
+    /// Execute `action` just before dropping privileges.
+    /// Most common usecase is to open listening socket.
     /// Result of `action` execution will be returned by `start` method.
     pub fn privileged_action<N, F: Fn() -> N + Sized + 'static>(self, action: F) -> Daemonize<N> {
         let mut new: Daemonize<N> = unsafe { transmute(self) };
@@ -347,7 +351,7 @@ impl<T> Daemonize<T> {
                     (Some(pid), None, Some(gid)) => Some((pid, uid_t::max_value() - 1, gid)),
                     (Some(pid), Some(uid), None) => Some((pid, uid, gid_t::max_value() - 1)),
                     // Or pid file is not provided, or both user and group
-                    _ => None
+                    _ => None,
                 };
 
                 maptry!(args, |(pid, uid, gid)| chown_pid_file(pid, uid, gid));
@@ -374,11 +378,13 @@ impl<T> Daemonize<T> {
         if self.pid_file.is_none() {
             return Err(DaemonizeSignalError::PidfileNotProvided);
         }
-        let mut file = try!(File::open(self.pid_file.unwrap()).map_err(|e| DaemonizeSignalError::OpenPidfile(e.raw_os_error())));
+        let mut file = try!(File::open(self.pid_file.unwrap())
+            .map_err(|e| DaemonizeSignalError::OpenPidfile(e.raw_os_error())));
         let mut pid = String::new();
-        try!(file.read_to_string(&mut pid).map_err(|e| DaemonizeSignalError::ReadPidfile(e.raw_os_error())));
+        try!(file.read_to_string(&mut pid)
+            .map_err(|e| DaemonizeSignalError::ReadPidfile(e.raw_os_error())));
         let pid_int = try!(pid.parse::<i32>().map_err(|_| DaemonizeSignalError::ParsePiffile(pid)));
-        unsafe { 
+        unsafe {
             if kill(pid_int, signal) == -1 {
                 Err(DaemonizeSignalError::KillProcess(errno()))
             } else {
@@ -415,7 +421,7 @@ unsafe fn redirect_standard_streams() -> Result<()> {
 
     let devnull_file = fopen(transmute(b"/dev/null\0"), transmute(b"w+\0"));
     if devnull_file.is_null() {
-        return Err(DaemonizeError::RedirectStreams(errno()))
+        return Err(DaemonizeError::RedirectStreams(errno()));
     };
 
     let devnull_fd = fileno(devnull_file);
@@ -431,7 +437,7 @@ unsafe fn get_group(group: Group) -> Result<gid_t> {
             let s = try!(CString::new(name).map_err(|_| DaemonizeError::GroupContainsNul));
             match get_gid_by_name(&s) {
                 Some(id) => get_group(Group::Id(id)),
-                None => Err(DaemonizeError::GroupNotFound)
+                None => Err(DaemonizeError::GroupNotFound),
             }
         }
     }
@@ -448,7 +454,7 @@ unsafe fn get_user(user: User) -> Result<uid_t> {
             let s = try!(CString::new(name).map_err(|_| DaemonizeError::UserContainsNul));
             match get_uid_by_name(&s) {
                 Some(id) => get_user(User::Id(id)),
-                None => Err(DaemonizeError::UserNotFound)
+                None => Err(DaemonizeError::UserNotFound),
             }
         }
     }
@@ -463,16 +469,20 @@ unsafe fn create_pid_file(path: PathBuf) -> Result<libc::c_int> {
 
     let f = fopen(path_c.as_ptr(), b"w" as *const u8 as *const libc::c_char);
     if f.is_null() {
-        return Err(DaemonizeError::OpenPidfile)
+        return Err(DaemonizeError::OpenPidfile);
     }
 
     let fd = fileno(f);
-    tryret!(flock(fd, LOCK_EX | LOCK_NB), Ok(fd), DaemonizeError::LockPidfile)
+    tryret!(flock(fd, LOCK_EX | LOCK_NB),
+            Ok(fd),
+            DaemonizeError::LockPidfile)
 }
 
 unsafe fn chown_pid_file(path: PathBuf, uid: uid_t, gid: gid_t) -> Result<()> {
     let path_c = try!(pathbuf_into_cstring(path));
-    tryret!(libc::chown(path_c.as_ptr(), uid, gid), Ok(()), DaemonizeError::ChownPidfile)
+    tryret!(libc::chown(path_c.as_ptr(), uid, gid),
+            Ok(()),
+            DaemonizeError::ChownPidfile)
 }
 
 unsafe fn write_pid_file(fd: libc::c_int) -> Result<()> {
@@ -488,6 +498,5 @@ unsafe fn write_pid_file(fd: libc::c_int) -> Result<()> {
 }
 
 fn pathbuf_into_cstring(path: PathBuf) -> Result<CString> {
-    CString::new(path.into_os_string().into_vec())
-            .map_err(|_| DaemonizeError::PathContainsNul)
+    CString::new(path.into_os_string().into_vec()).map_err(|_| DaemonizeError::PathContainsNul)
 }

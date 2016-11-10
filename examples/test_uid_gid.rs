@@ -3,7 +3,7 @@ extern crate libc;
 
 use std::io::prelude::*;
 
-use daemonize::{Daemonize};
+use daemonize::Daemonize;
 
 fn main() {
     let args = std::env::args().collect::<Vec<String>>();
