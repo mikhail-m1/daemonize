@@ -50,9 +50,11 @@ use std::os::unix::ffi::OsStringExt;
 use std::mem::{transmute};
 use std::path::{Path, PathBuf};
 use std::process::{exit};
+use std::fs::File;
+use std::io::Read;
 
 pub use libc::{uid_t, gid_t};
-use libc::{LOCK_EX, LOCK_NB, c_int, fopen, write, close, fileno, fork, getpid, setsid, setuid, setgid, dup2, umask};
+use libc::{LOCK_EX, LOCK_NB, c_int, fopen, write, close, fileno, fork, getpid, setsid, setuid, setgid, dup2, umask, kill, SIGTERM};
 
 use self::ffi::{errno, flock, get_gid_by_name, get_uid_by_name};
 
@@ -145,6 +147,43 @@ impl std::error::Error for DaemonizeError {
 }
 
 type Result<T> = std::result::Result<T, DaemonizeError>;
+
+/// This error type for `Daemonize` `stop` method.
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub enum DaemonizeSignalError {
+    PidfileNotProvided,
+    OpenPidfile(Option<i32>),
+    ReadPidfile(Option<i32>),
+    ParsePiffile(String),
+    KillProcess(Errno),
+    #[doc(hidden)]
+    __Nonexhaustive,
+}
+
+impl DaemonizeSignalError {
+    fn __description(&self) -> &str {
+        match *self {
+            DaemonizeSignalError::PidfileNotProvided => "pid file was not provided",
+            DaemonizeSignalError::OpenPidfile(_) => "unable to open pid file",
+            DaemonizeSignalError::ReadPidfile(_) => "unable to read from pid file",
+            DaemonizeSignalError::ParsePiffile(_) => "unable to parse pid file content",
+            DaemonizeSignalError::KillProcess(_) => "cannot kill process",
+            DaemonizeSignalError::__Nonexhaustive => unreachable!(),
+        }
+    }
+}
+
+impl std::fmt::Display for DaemonizeSignalError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.__description().fmt(f)
+    }
+}
+
+impl std::error::Error for DaemonizeSignalError {
+    fn description(&self) -> &str {
+        self.__description()
+    }
+}
 
 /// Expects system user id or name. If name is provided it will be resolved to id later.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
@@ -325,6 +364,28 @@ impl<T> Daemonize<T> {
         }
     }
 
+    /// Stop daemonization process.
+    pub fn stop(self) -> std::result::Result<(), DaemonizeSignalError> {
+        self.signal(SIGTERM)
+    }
+
+    /// Send signal to daemonization process.
+    pub fn signal(self, signal: i32) -> std::result::Result<(), DaemonizeSignalError> {
+        if self.pid_file.is_none() {
+            return Err(DaemonizeSignalError::PidfileNotProvided);
+        }
+        let mut file = try!(File::open(self.pid_file.unwrap()).map_err(|e| DaemonizeSignalError::OpenPidfile(e.raw_os_error())));
+        let mut pid = String::new();
+        try!(file.read_to_string(&mut pid).map_err(|e| DaemonizeSignalError::ReadPidfile(e.raw_os_error())));
+        let pid_int = try!(pid.parse::<i32>().map_err(|_| DaemonizeSignalError::ParsePiffile(pid)));
+        unsafe { 
+            if kill(pid_int, signal) == -1 {
+                Err(DaemonizeSignalError::KillProcess(errno()))
+            } else {
+                Ok(())
+            }
+        }
+    }
 }
 
 unsafe fn perform_fork() -> Result<()> {

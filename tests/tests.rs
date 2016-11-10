@@ -72,6 +72,28 @@ fn double_run() {
 }
 
 #[test]
+fn run_stop() {
+    let tmpdir = TempDir::new("start_stop").unwrap();
+    let pid_file = tmpdir.path().join("pid");
+    let first_result = tmpdir.path().join("first");
+    let second_result = tmpdir.path().join("second");
+
+    for &(file, action) in [(&first_result, "start"), (&second_result, "stop")].iter() {
+        let args = [pid_file.to_str().unwrap(), action, file.to_str().unwrap()];
+        run("target/debug/examples/test_start_stop", &args);
+    }
+    std::thread::sleep(std::time::Duration::from_millis(200));
+
+    let mut data = String::new();
+    std::fs::File::open(&first_result).unwrap().read_to_string(&mut data).unwrap();
+    assert_eq!(data, "ok");
+    
+    data.clear();
+    std::fs::File::open(&second_result).unwrap().read_to_string(&mut data).unwrap();
+    assert_eq!(data, "ok");
+}
+
+#[test]
 #[cfg(target_os = "macos")]
 fn test_uid_gid() {
     let tmpdir = TempDir::new("uid_gid").unwrap();
