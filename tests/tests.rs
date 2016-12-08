@@ -41,7 +41,7 @@ fn test_pid() {
 
     let mut data = String::new();
     std::fs::File::open(&pid_file).unwrap().read_to_string(&mut data).unwrap();
-    let pid: u32 = data.parse().unwrap();
+    let pid: u32 = data.trim_right().parse().unwrap();
     assert!(pid != child_pid)
 }
 

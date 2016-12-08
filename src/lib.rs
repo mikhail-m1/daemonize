@@ -383,7 +383,7 @@ impl<T> Daemonize<T> {
         let mut pid = String::new();
         try!(file.read_to_string(&mut pid)
             .map_err(|e| DaemonizeSignalError::ReadPidfile(e.raw_os_error())));
-        let pid_int = try!(pid.parse::<i32>().map_err(|_| DaemonizeSignalError::ParsePiffile(pid)));
+        let pid_int = try!(pid.trim_right().parse::<i32>().map_err(|_| DaemonizeSignalError::ParsePiffile(pid)));
         unsafe {
             if kill(pid_int, signal) == -1 {
                 Err(DaemonizeSignalError::KillProcess(errno()))
@@ -487,7 +487,7 @@ unsafe fn chown_pid_file(path: PathBuf, uid: uid_t, gid: gid_t) -> Result<()> {
 
 unsafe fn write_pid_file(fd: libc::c_int) -> Result<()> {
     let pid = getpid();
-    let pid_buf = format!("{}", pid).into_bytes();
+    let pid_buf = format!("{}\n", pid).into_bytes();
     let pid_length = pid_buf.len();
     let pid_c = CString::new(pid_buf).unwrap();
     if write(fd, transmute(pid_c.as_ptr()), pid_length) < pid_length as isize {
