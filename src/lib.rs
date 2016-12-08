@@ -401,6 +401,7 @@ unsafe fn perform_fork() -> Result<()> {
     } else if pid == 0 {
         Ok(())
     } else {
+        std::thread::sleep(std::time::Duration::from_millis(100));
         exit(0)
     }
 }
